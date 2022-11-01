@@ -347,7 +347,7 @@ int main(int argc, char**argv) {
     std::stringstream ss;
     auto writer = csv::make_csv_writer(ss);
     writer << std::vector<std::string>({"filename", "size", "num", "min", "max", "valueRange","avgValue", "entropy", "zeromean_variance", "total_overhead_time", "total_overhead_percentage",
-                                        "prediction_overhead_time", "prediction_overhead_percentage",
+                                        "prediction_overhead_time", "prediction_overhead_percentage", "ABS Error Bound", "Set Error Bound",
                                         "avg_lorenzo", "quant_entropy", "predicted CR", "predicted bitrate", "CPTime", "CR","DPTime","WriteTime","PSNR","RMSE"});
     std::string filename = inputFilePath.getValue();
     filename = filename.substr(filename.rfind('/') + 1);
@@ -364,6 +364,8 @@ int main(int argc, char**argv) {
                                         std::to_string(overhead_time/cp_result.CPTime),
                                         std::to_string(lorenzoResult.overhead_time),
                                         std::to_string(lorenzoResult.overhead_time / cp_result.CPTime),
+                                        std::to_string(eb),
+                                        ebArg.getValue(),
                                         std::to_string(lorenzoResult.avg_err),
                                         std::to_string(lorenzoResult.quant_entropy),
                                         std::to_string(lorenzoResult.predict_cr),
