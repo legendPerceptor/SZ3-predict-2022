@@ -134,13 +134,12 @@ namespace SZ {
             pre_lossless = 1 / (C_1 * (1 - p_0) * P_0 + (1 - P_0));
             if (pre_lossless < 1) pre_lossless = 1;
 
-            printf("p_0, P_0: %f %f\n", p_0, P_0);
-
-            printf("test %d %d %d \n", quant_inds[0], quant_inds[1], quant_inds[2]);
+//            printf("p_0, P_0: %f %f\n", p_0, P_0);
+//            printf("test %d %d %d \n", quant_inds[0], quant_inds[1], quant_inds[2]);
 //            printf("minmax: %d, %d\n", current_min, current_max);
-            printf("num, nupredicted, zero: %d %d %d\n", pre_num, pre_freq[0], pre_freq[512]);
-            printf("test %d\n", quant_inds.size());
-            printf("predicted compression bit-rate: %f %f\n", prediction, 32/prediction);
+//            printf("num, nupredicted, zero: %d %d %d\n", pre_num, pre_freq[0], pre_freq[512]);
+//            printf("test %d\n", quant_inds.size());
+//            printf("predicted compression bit-rate: %f %f\n", prediction, 32/prediction);
     
             prediction = prediction / pre_lossless;
 //            printf("with lossless: %f %f %f\n", pre_lossless, prediction, 32/prediction);

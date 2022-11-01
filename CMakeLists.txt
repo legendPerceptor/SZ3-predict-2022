@@ -5,6 +5,7 @@ include(CTest)
 
 option(BUILD_SHARED_LIBS "build shared libraries by default" ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_FLAGS "-O3")
 
 set(default_build_type "Release")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)

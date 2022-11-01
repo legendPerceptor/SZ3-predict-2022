@@ -19,7 +19,24 @@ struct LorenzoResult {
     double avg_err;
     double predict_cr;
     double predict_bitrate;
+    double quant_entropy;
+    double overhead_time;
 };
+
+double calculateQuantizationEntroy(const std::vector<int>& quant_inds, int binNumber, int nble){
+    std::vector<int> bucket(binNumber, 0);
+    for(auto iter=quant_inds.begin();iter!=quant_inds.end();iter++){
+        ++bucket[*iter];
+    }
+    double entVal=0;
+    for(auto iter = bucket.begin();iter!=bucket.end();iter++) {
+        if(*iter != 0) {
+            double prob = double(*iter) / nble;
+            entVal -= prob * log(prob) / log(2);
+        }
+    }
+    return entVal;
+}
 
 template<uint N>
 LorenzoResult lorenzo_test(float* data, std::array<size_t, N> dims, float eb=1e-6, int r = 512){
@@ -62,6 +79,8 @@ LorenzoResult lorenzo_test(float* data, std::array<size_t, N> dims, float eb=1e-
         }
     }
 
+    struct timespec start, end;
+    clock_gettime(CLOCK_REALTIME, &start);
     double prediction = 0;
     float temp_bit = 0;
     float p_0 = (float)pre_freq[512]/pre_num;
@@ -96,30 +115,41 @@ LorenzoResult lorenzo_test(float* data, std::array<size_t, N> dims, float eb=1e-
     if (pre_lossless < 1) pre_lossless = 1;
     prediction = prediction / pre_lossless;
 
+    std::cout << "Calculating quantization entropy updated!!" << std::endl;
+    double quant_entropy = calculateQuantizationEntroy(quant_inds, r*2, nble);
+    clock_gettime(CLOCK_REALTIME, &end);
+    double overhead_time = (double) (end.tv_sec - start.tv_sec) +
+                           (double) (end.tv_nsec - start.tv_nsec) / (double) 1000000000;
+//    printf("exporting the quantization bins");
+//    std::ofstream output_file("./quant_distribution.dat", std::ios::binary | std::ios::out);
+//    int quant_size = quant_inds.size();
+//    int magic_number = 2051;
+//    output_file.write((char*) &magic_number, sizeof(int));
+//    output_file.write((char*)&quant_size, sizeof(int));
+//    output_file.write((char*)&quant_inds[0], sizeof(int) * quant_size);
+//    output_file.close();
+
 //    printf("p_0, P_0: %f %f\n", p_0, P_0);
 //    printf("test %d %d %d \n", quant_inds[0], quant_inds[1], quant_inds[2]);
 //    printf("num, nupredicted, zero: %d %d %d\n", pre_num, pre_freq[0], pre_freq[512]);
 //    printf("test %d\n", quant_inds.size());
-//    printf("predicted compression bit-rate: %f %f\n", prediction, 32/prediction);
+    printf("predicted compression bit-rate: %f %f\n", prediction, 32/prediction);
 //
 //    std::cout << "the prediction: " << prediction << std::endl;
 
     LorenzoResult result = {.avg_err = avg_err,
                             .predict_cr = 32/prediction,
-                            .predict_bitrate=prediction};
+                            .predict_bitrate=prediction,
+                            .quant_entropy = quant_entropy,
+                            .overhead_time = overhead_time};
 
-
-    // Deal with quant
-
-//    sum = sum / nble;
-//    std::cout<<"AVG SUM:" << sum << "; avgerr" << avg_err <<std::endl;
     return result;
 }
 
 struct CompressionResult {
     double CR;
     double CPTime;
-    char *cpdata;
+    std::unique_ptr<char> cpdata;
     size_t outsize;
 };
 
@@ -135,7 +165,7 @@ CompressionResult compress(T* data, char *cmpPath, SZ::Config conf) {
 
     size_t outSize;
     SZ::Timer timer(true);
-    char *bytes = SZ_compress<T>(conf, data, outSize);
+    std::unique_ptr<char> bytes(SZ_compress<T>(conf, data, outSize));
     double compress_time = timer.stop();
 
     char outputFilePath[1024];
@@ -144,17 +174,17 @@ CompressionResult compress(T* data, char *cmpPath, SZ::Config conf) {
     } else {
         strcpy(outputFilePath, cmpPath);
     }
-    SZ::writefile(outputFilePath, bytes, outSize);
+    SZ::writefile(outputFilePath, bytes.get(), outSize);
 
     CompressionResult result;
     result.CR = conf.num * 1.0 * sizeof(T) / outSize;
     result.CPTime=compress_time;
-    result.cpdata = bytes;
+    result.cpdata = std::move(bytes);
     result.outsize = outSize;
 
-//    printf("compression ratio = %.2f \n", conf.num * 1.0 * sizeof(T) / outSize);
-//    printf("compression time = %f\n", compress_time);
-//    printf("compressed data file = %s\n", outputFilePath);
+    printf("compression ratio = %.2f \n", conf.num * 1.0 * sizeof(T) / outSize);
+    printf("compression time = %f\n", compress_time);
+    printf("compressed data file = %s\n", outputFilePath);
 
 //    delete[]data;
 //    delete[]bytes;
@@ -169,9 +199,9 @@ DecompressionResult decompress(float* ori_data, char *cmpData, size_t cmpSize, c
 
 
     SZ::Timer timer(true);
-    T *decData = SZ_decompress<T>(conf, cmpData, cmpSize);
+    std::unique_ptr<T> decData(SZ_decompress<T>(conf, cmpData, cmpSize));
     double compress_time = timer.stop();
-    std::cout << "I have finished decompression" << std::endl;
+    std::cout << "Decompression finished successfully" << std::endl;
     char outputFilePath[1024];
     if (decPath == nullptr) {
         sprintf(outputFilePath, "tmpsz.out");
@@ -180,20 +210,20 @@ DecompressionResult decompress(float* ori_data, char *cmpData, size_t cmpSize, c
     }
     SZ::Timer timer2(true);
     if (binaryOutput == 1) {
-        SZ::writefile<T>(outputFilePath, decData, conf.num);
+        SZ::writefile<T>(outputFilePath, decData.get(), conf.num);
     } else {
-        SZ::writeTextFile<T>(outputFilePath, decData, conf.num);
+        SZ::writeTextFile<T>(outputFilePath, decData.get(), conf.num);
     }
     double write_time = timer2.stop();
 
     DecompressionResult dpresult;
     dpresult.DPTime = compress_time;
     dpresult.WriteTime = write_time;
-    SZ::verify<T>(ori_data, decData, conf.num, dpresult.PSNR, dpresult.RMSE);
+    SZ::verify<T>(ori_data, decData.get(), conf.num, dpresult.PSNR, dpresult.RMSE);
 //    delete[]decData;
 //    printf("compression ratio = %f\n", conf.num * sizeof(T) * 1.0 / cmpSize);
-//    printf("decompression time = %f seconds.\n", compress_time);
-//    printf("decompressed file = %s\n", outputFilePath);
+    printf("decompression time = %f seconds.\n", compress_time);
+    printf("decompressed file = %s\n", outputFilePath);
     return dpresult;
 }
 
@@ -213,6 +243,7 @@ int main(int argc, char**argv) {
     TCLAP::ValueArg<std::string> ebmodeArg("m", "ebmode", "the error bound mode - ABS | REL", true, "", "string");
     TCLAP::ValueArg<std::string> ebArg("e", "eb", "the error bound value", true, "", "string");
     TCLAP::ValueArg<std::string> confFilePath("c", "conf", "the config file path", true, "", "string");
+    TCLAP::ValueArg<std::string> csvOutputPath("o", "csvOutput", "The Output CSV file", false, "result.csv", "string");
     TCLAP::SwitchArg logcalculation("l", "log", "Whether use the log before anything", cmd1, false);
 
     cmd1.add(inputFilePath);
@@ -220,6 +251,7 @@ int main(int argc, char**argv) {
     cmd1.add(ebmodeArg);
     cmd1.add(ebArg);
     cmd1.add(confFilePath);
+    cmd1.add(csvOutputPath);
     cmd1.parse(argc, argv);
     bool debug = debugArg.getValue();
     size_t num = 0;
@@ -300,7 +332,7 @@ int main(int argc, char**argv) {
     auto cp_result = compress<float>(data.get(), NULL, conf);
     auto ori_data = SZ::readfile<float>(inputFilePath.getValue().c_str(), num);
     DecompressionResult dp_result;
-    dp_result = decompress<float>(ori_data.get(), cp_result.cpdata, cp_result.outsize, NULL, conf, 1);
+    dp_result = decompress<float>(ori_data.get(), cp_result.cpdata.get(), cp_result.outsize, NULL, conf, 1);
 
 
     int i = 0;
@@ -314,8 +346,9 @@ int main(int argc, char**argv) {
 
     std::stringstream ss;
     auto writer = csv::make_csv_writer(ss);
-    writer << std::vector<std::string>({"filename", "size", "num", "min", "max", "valueRange","avgValue", "entropy", "zeromean_variance",
-                                        "avg_lorenzo", "predicted CR", "predicted bitrate", "CPTime", "CR","DPTime","WriteTime","PSNR","RMSE"});
+    writer << std::vector<std::string>({"filename", "size", "num", "min", "max", "valueRange","avgValue", "entropy", "zeromean_variance", "total_overhead_time", "total_overhead_percentage",
+                                        "prediction_overhead_time", "prediction_overhead_percentage",
+                                        "avg_lorenzo", "quant_entropy", "predicted CR", "predicted bitrate", "CPTime", "CR","DPTime","WriteTime","PSNR","RMSE"});
     std::string filename = inputFilePath.getValue();
     filename = filename.substr(filename.rfind('/') + 1);
     writer << std::vector<std::string>({filename,
@@ -327,7 +360,12 @@ int main(int argc, char**argv) {
                                         std::to_string(property->avgValue),
                                         std::to_string(property->entropy),
                                         std::to_string(property->zeromean_variance),
+                                        std::to_string(overhead_time),
+                                        std::to_string(overhead_time/cp_result.CPTime),
+                                        std::to_string(lorenzoResult.overhead_time),
+                                        std::to_string(lorenzoResult.overhead_time / cp_result.CPTime),
                                         std::to_string(lorenzoResult.avg_err),
+                                        std::to_string(lorenzoResult.quant_entropy),
                                         std::to_string(lorenzoResult.predict_cr),
                                         std::to_string(lorenzoResult.predict_bitrate),
                                         std::to_string(cp_result.CPTime),
@@ -341,5 +379,9 @@ int main(int argc, char**argv) {
     }
     free(property);
     std::cout << ss.str() << std::endl;
+    if(csvOutputPath.isSet()){
+        std::ofstream fout(csvOutputPath.getValue(), std::ios::out);
+        fout << ss.str() << std::endl;
+    }
     return 0;
 }
