@@ -1,0 +1,6 @@
+[submodule "vendors/csv-parser"]
+	path = vendors/csv-parser
+	url = https://github.com/vincentlaucsb/csv-parser.git
+[submodule "vendors/tclap"]
+	path = vendors/tclap
+	url = https://github.com/legendPerceptor/tclap-mirror.git

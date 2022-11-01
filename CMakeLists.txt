@@ -20,6 +20,10 @@ find_package(OpenMP)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/SZ3/version.hpp.in ${CMAKE_CURRENT_BINARY_DIR}/include/SZ3/version.hpp)
 
+include_directories(${PROJECT_SOURCE_DIR}/vendors/tclap/include ${PROJECT_SOURCE_DIR}/vendors/csv-parser/include)
+add_subdirectory(vendors/csv-parser)
+
+
 add_library(${PROJECT_NAME} INTERFACE)
 target_include_directories(
         ${PROJECT_NAME} INTERFACE

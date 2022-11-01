@@ -32,6 +32,15 @@ namespace SZ {
 //            printf("compress start\n");
             std::vector<int> quant_inds = frontend.compress(data);
 
+            printf("exporting the quantization bins");
+            std::ofstream output_file("./quant_distribution.dat", std::ios::binary | std::ios::out);
+            int quant_size = quant_inds.size();
+            int magic_number = 2051;
+            output_file.write((char*) &magic_number, sizeof(int));
+            output_file.write((char*)&quant_size, sizeof(int));
+            output_file.write((char*)&quant_inds[0], sizeof(int) * quant_size);
+            output_file.close();
+
 //            printf("compress 001\n");
             encoder.preprocess_encode(quant_inds, 0);
             size_t bufferSize = 1.2 * (frontend.size_est() + encoder.size_est() + sizeof(T) * quant_inds.size());
