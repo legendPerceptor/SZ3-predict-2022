@@ -21,6 +21,8 @@ struct LorenzoResult {
     double predict_bitrate;
     double quant_entropy;
     double overhead_time;
+    double p0;
+    double P0;
 };
 
 double calculateQuantizationEntroy(const std::vector<int>& quant_inds, int binNumber, int nble){
@@ -141,7 +143,9 @@ LorenzoResult lorenzo_test(float* data, std::array<size_t, N> dims, float eb=1e-
                             .predict_cr = 32/prediction,
                             .predict_bitrate=prediction,
                             .quant_entropy = quant_entropy,
-                            .overhead_time = overhead_time};
+                            .overhead_time = overhead_time,
+                            .p0 = p_0,
+                            .P0 = P_0};
 
     return result;
 }
@@ -348,7 +352,7 @@ int main(int argc, char**argv) {
     auto writer = csv::make_csv_writer(ss);
     writer << std::vector<std::string>({"filename", "size", "num", "min", "max", "valueRange","avgValue", "entropy", "zeromean_variance", "total_overhead_time", "total_overhead_percentage",
                                         "prediction_overhead_time", "prediction_overhead_percentage", "ABS Error Bound", "Set Error Bound",
-                                        "avg_lorenzo", "quant_entropy", "predicted CR", "predicted bitrate", "CPTime", "CR","DPTime","WriteTime","PSNR","RMSE"});
+                                        "avg_lorenzo", "quant_entropy", "predicted CR", "predicted bitrate", "p0", "P0", "CPTime", "CR","DPTime","WriteTime","PSNR","RMSE"});
     std::string filename = inputFilePath.getValue();
     filename = filename.substr(filename.rfind('/') + 1);
     writer << std::vector<std::string>({filename,
@@ -370,6 +374,8 @@ int main(int argc, char**argv) {
                                         std::to_string(lorenzoResult.quant_entropy),
                                         std::to_string(lorenzoResult.predict_cr),
                                         std::to_string(lorenzoResult.predict_bitrate),
+                                        std::to_string(lorenzoResult.p0),
+                                        std::to_string(lorenzoResult.P0),
                                         std::to_string(cp_result.CPTime),
                                         std::to_string(cp_result.CR),
                                         std::to_string(dp_result.DPTime),
