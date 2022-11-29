@@ -21,7 +21,7 @@
 
 
 
-static struct DecompressionResult {
+struct DecompressionResult {
     double DPTime;
     double WriteTime;
 };
