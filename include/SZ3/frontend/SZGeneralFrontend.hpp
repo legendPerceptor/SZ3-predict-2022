@@ -102,37 +102,37 @@ namespace SZ {
             predictor.postcompress_data(block_range->begin());
             quantizer.postcompress_data();
 
-            float temp_bit = 0;
-            float p_0 = (float)pre_freq[512]/pre_num;
-            float P_0;
-            float C_1 = 1.0;
-            float pre_lossless = 1.0;
-            for (int i = 1; i < 1023; i++) {
-                if (pre_freq[i] != 0) {
-                    temp_bit = -log2((float)pre_freq[i]/pre_num);
-                    //printf("%f %d\n", temp_bit, i);
-                    if (temp_bit < 32) {
-                        if (temp_bit < 1) {
+//            float temp_bit = 0;
+//            float p_0 = (float)pre_freq[512]/pre_num;
+//            float P_0;
+//            float C_1 = 1.0;
+//            float pre_lossless = 1.0;
+//            for (int i = 1; i < 1023; i++) {
+//                if (pre_freq[i] != 0) {
+//                    temp_bit = -log2((float)pre_freq[i]/pre_num);
+//                    //printf("%f %d\n", temp_bit, i);
+//                    if (temp_bit < 32) {
+//                        if (temp_bit < 1) {
 //                            printf("layer: %d %f\n", i, temp_bit);
-                            if (i == 512) prediction += ((float)pre_freq[i]/pre_num) * 1;
-                            else if (i == 511) prediction += ((float)pre_freq[i]/pre_num) * 2.5;
-                            else if (i == 513) prediction += ((float)pre_freq[i]/pre_num) * 2.5;
-                            else prediction += ((float)pre_freq[i]/pre_num) * 4;
-                        }
-                        else
-                            prediction += ((float)pre_freq[i]/pre_num) * temp_bit;
-                    }
-                }
-            }
-            if (pre_freq[0] != 0) 
-                prediction += ((float)pre_freq[0]/pre_num) * 32;
-            if (pre_freq[512] > pre_num/2)
-                P_0 = (((float)pre_freq[512]/pre_num) * 1.0)/prediction;
-            else
-                P_0 = -(((float)pre_freq[512]/pre_num) * log2((float)pre_freq[512]/pre_num))/prediction;
-
-            pre_lossless = 1 / (C_1 * (1 - p_0) * P_0 + (1 - P_0));
-            if (pre_lossless < 1) pre_lossless = 1;
+//                            if (i == 512) prediction += ((float)pre_freq[i]/pre_num) * 1;
+//                            else if (i == 511) prediction += ((float)pre_freq[i]/pre_num) * 2.5;
+//                            else if (i == 513) prediction += ((float)pre_freq[i]/pre_num) * 2.5;
+//                            else prediction += ((float)pre_freq[i]/pre_num) * 4;
+//                        }
+//                        else
+//                            prediction += ((float)pre_freq[i]/pre_num) * temp_bit;
+//                    }
+//                }
+//            }
+//            if (pre_freq[0] != 0)
+//                prediction += ((float)pre_freq[0]/pre_num) * 32;
+//            if (pre_freq[512] > pre_num/2)
+//                P_0 = (((float)pre_freq[512]/pre_num) * 1.0)/prediction;
+//            else
+//                P_0 = -(((float)pre_freq[512]/pre_num) * log2((float)pre_freq[512]/pre_num))/prediction;
+//
+//            pre_lossless = 1 / (C_1 * (1 - p_0) * P_0 + (1 - P_0));
+//            if (pre_lossless < 1) pre_lossless = 1;
 
 //            printf("p_0, P_0: %f %f\n", p_0, P_0);
 //            printf("test %d %d %d \n", quant_inds[0], quant_inds[1], quant_inds[2]);
@@ -141,12 +141,12 @@ namespace SZ {
 //            printf("test %d\n", quant_inds.size());
 //            printf("predicted compression bit-rate: %f %f\n", prediction, 32/prediction);
     
-            prediction = prediction / pre_lossless;
+//            prediction = prediction / pre_lossless;
 //            printf("with lossless: %f %f %f\n", pre_lossless, prediction, 32/prediction);
 
 
-            printf("Predicted compression ratio: %f\n", 32/prediction);
-            printf("Predicted compression bit-rate: %f\n", prediction);
+//            printf("Predicted compression ratio: %f\n", 32/prediction);
+//            printf("Predicted compression bit-rate: %f\n", prediction);
 //            exit(0);
 
             return quant_inds;

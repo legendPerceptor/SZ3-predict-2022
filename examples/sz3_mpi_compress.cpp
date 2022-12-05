@@ -115,44 +115,30 @@ int main(int argc, char** argv) {
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     int num_of_files;
-    char filepath[256];
     double wtime;
-    if(world_rank==0){
-        std::string dirpath = dataFolderPath.getValue();
-        std::vector<std::string> filenames;
-        printf("Rank 0 Add Files\n");
+    std::string dirpath = dataFolderPath.getValue();
+    std::vector<std::string> filenames;
+    if(world_rank==0) {
         wtime = MPI_Wtime();
-        for (const auto & entry : fs::directory_iterator(dirpath)) {
-            filenames.push_back(entry.path());
-        }
-        num_of_files = filenames.size();
-        // Broadcast the number of files
-        MPI_Bcast(&num_of_files, 1, MPI_INT, 0, MPI_COMM_WORLD);
-        // MPI_Barrier(MPI_COMM_WORLD);
-
-        for (int i=0;i<num_of_files;i++){
-            // printf("length: %d, filename: %s\n", filenames[i].size(), filenames[i].c_str());
-            int dst = i % (world_size);
-            strcpy(filepath, filenames[i].c_str());
-            MPI_Send(filepath, strlen(filepath) + 1, MPI_CHAR, dst, 1, MPI_COMM_WORLD);
-        }
     }
+    for (const auto & entry : fs::directory_iterator(dirpath)) {
+        filenames.push_back(entry.path());
+    }
+    num_of_files = filenames.size();
     MPI_Bcast(&num_of_files, 1, MPI_INT, 0, MPI_COMM_WORLD);
 //    printf("Rank %d has num of files: %d\n", world_rank, num_of_files);
     MPI_Barrier(MPI_COMM_WORLD);
 
     MPI_Status status;
     size_t num;
-    for(int i=0;i<num_of_files / world_size; i++) {
-        MPI_Recv(filepath, 250, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-        printf("My rank is %d, dealing with %s\n", world_rank, filepath);
-        std::string file_path_str(filepath);
+    for(int i=world_rank;i<num_of_files;i+=world_size) {
+        std::string file_path_str = filenames[i];
         std::string filename = file_path_str.substr(file_path_str.rfind('/') + 1);
         auto data = SZ::readfile<float>(file_path_str.c_str(), num);
         conf.num = num;
         std::string compressed_file = compressedFolderPath.getValue() + filename + ".sz3";
         auto cp_result = compress<float>(data.get(), compressed_file.c_str() , conf);
-        printf("My rank is %d, dealing with %s, saving to %s,\n compression time: %lf, compression ratio: %lf",
+        printf("My rank is %d, dealing with %s, saving to %s, compression time: %lf, compression ratio: %lf",
                world_rank, filename.c_str(), compressed_file.c_str(), cp_result.CPTime, cp_result.CR);
     }
 
