@@ -138,7 +138,7 @@ int main(int argc, char** argv) {
         conf.num = num;
         std::string compressed_file = compressedFolderPath.getValue() + filename + ".sz3";
         auto cp_result = compress<float>(data.get(), compressed_file.c_str() , conf);
-        printf("My rank is %d, dealing with %s, saving to %s, compression time: %lf, compression ratio: %lf",
+        printf("My rank is %d, dealing with %s, saving to %s, compression time: %lf, compression ratio: %lf\n",
                world_rank, filename.c_str(), compressed_file.c_str(), cp_result.CPTime, cp_result.CR);
     }
 
