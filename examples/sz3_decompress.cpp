@@ -60,16 +60,10 @@ DecompressionResult decompress(char *cmpData, size_t cmpSize,const char *decPath
 
 
 int main(int argc, char**argv) {
-    if(argc < 2)
-    {
-        printf("Usage: printDataProperty [dataType] tgtFilePath]\n");
-        printf("Example: printDataProperty -f testfloat_8_8_128.dat\n");
-        exit(0);
-    }
     TCLAP::CmdLine cmd1("SZ3 Data Property", ' ', "0.1");
-    TCLAP::ValueArg<std::string> inputFilePath("f","file", "The input data source file path",false,"","string");
-    TCLAP::ValueArg<std::string> csvOutputPath("o", "csvOutput", "The Output CSV file", false, "result.csv", "string");
-    TCLAP::ValueArg<std::string> decompressedFilePath("p", "compress", "The compressed file", false, "", "string");
+    TCLAP::ValueArg<std::string> inputFilePath("f","file", "The input data source file path",true,"","string");
+    TCLAP::ValueArg<std::string> csvOutputPath("o", "csvOutput", "The Output CSV file", true, "result.csv", "string");
+    TCLAP::ValueArg<std::string> decompressedFilePath("p", "compress", "The decompressed file", true, "", "string");
 
     cmd1.add(inputFilePath);
     cmd1.add(csvOutputPath);
