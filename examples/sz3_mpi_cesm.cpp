@@ -1,3 +1,7 @@
+//
+// Created by apple on 2022/12/5.
+//
+
 #include <mpi.h>
 #include <iostream>
 #include <cstdio>
@@ -58,52 +62,6 @@ CompressionResult compress(T* data, const char *cmpPath, SZ::Config conf) {
 
 int main(int argc, char** argv) {
     // Initialize the MPI environment
-    if(argc < 2){
-        printf("Please provide information for the parallel compression\n");
-        exit(0);
-    }
-
-    TCLAP::CmdLine cmd1("SZ3 Parallel Compression", ' ', "0.1");
-    TCLAP::ValueArg<std::string> ebArg("e", "eb", "the error bound value", true, "", "string");
-    TCLAP::ValueArg<std::string> confFilePath("c", "conf", "the config file path", true, "", "config path");
-    TCLAP::ValueArg<std::string> dimensionArg("d", "dimension", "the dimention of data", false, "", "dimension");
-    TCLAP::ValueArg<std::string> dataFolderPath("q", "data", "The data folder", false, "", "string");
-    TCLAP::ValueArg<std::string> compressedFolderPath("p", "compress", "The compressed folder", false, "", "string");
-
-    cmd1.add(dimensionArg);
-    cmd1.add(ebArg);
-    cmd1.add(confFilePath);
-    cmd1.add(compressedFolderPath);
-    cmd1.add(dataFolderPath);
-    cmd1.parse(argc, argv);
-    std::vector<size_t> dims;
-    if(dimensionArg.isSet()) {
-        std::string dimsString = dimensionArg.getValue();
-        {
-            std::stringstream ss;
-            ss << dimsString;
-            int tmp_dim;
-            while(ss >> tmp_dim) {
-                dims.push_back(tmp_dim);
-            }
-        }
-    }
-    SZ::Config conf;
-    if (dims.size()==1) {
-        conf = SZ::Config(dims[0]);
-    } else if (dims.size()==2) {
-        conf = SZ::Config(dims[1], dims[0]);
-    } else if (dims.size()==3) {
-        conf = SZ::Config(dims[2], dims[1], dims[0]);
-    } else {
-        conf = SZ::Config(dims[3], dims[2], dims[1], dims[0]);
-    }
-    if(confFilePath.isSet()) {
-        conf.loadcfg(confFilePath.getValue());
-    }
-    float eb = std::stof(ebArg.getValue());
-    conf.absErrorBound = eb;
-    conf.errorBoundMode = SZ::EB_ABS;
 
     MPI_Init(NULL, NULL);
 
@@ -114,28 +72,94 @@ int main(int argc, char** argv) {
     // Get the rank of the process
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-    int num_of_files;
+
+    if(argc < 2){
+        printf("Please provide information for the parallel compression\n");
+        exit(0);
+    }
+
+    TCLAP::CmdLine cmd1("SZ3 Parallel Compression", ' ', "0.1");
+    TCLAP::ValueArg<std::string> ebArg("e", "eb", "the error bound value", true, "", "string");
+    TCLAP::ValueArg<std::string> confFilePath("c", "conf", "the config file path", true, "", "config path");
+    TCLAP::ValueArg<std::string> dataFolderPath("q", "data", "The data folder", false, "", "string");
+    TCLAP::ValueArg<std::string> compressedFolderPath("p", "compress", "The compressed folder", false, "", "string");
+
+    cmd1.add(ebArg);
+    cmd1.add(confFilePath);
+    cmd1.add(compressedFolderPath);
+    cmd1.add(dataFolderPath);
+    cmd1.parse(argc, argv);
+
+    SZ::Config conf1, conf2;
+    conf1 = SZ::Config(26, 1800, 3600);
+    conf2 = SZ::Config(1800, 3600);
+    if(confFilePath.isSet()) {
+        conf1.loadcfg(confFilePath.getValue());
+        conf2.loadcfg(confFilePath.getValue());
+    }
+    float eb = std::stof(ebArg.getValue());
+    conf1.absErrorBound = eb;
+    conf1.errorBoundMode = SZ::EB_ABS;
+    conf2.absErrorBound = eb;
+    conf2.errorBoundMode = SZ::EB_ABS;
+
+
     double wtime;
     std::string dirpath = dataFolderPath.getValue();
-    std::vector<std::string> filenames;
+    std::vector<std::string> filenames, filenames_26, dirs;
     if(world_rank==0) {
         wtime = MPI_Wtime();
     }
-    for (const auto & entry : fs::directory_iterator(dirpath)) {
-        filenames.push_back(entry.path());
+    int count = 0;
+    for(const auto &entry: fs::recursive_directory_iterator(dirpath)) {
+        std::string cur = entry.path();
+        if(cur.find("26x1800x3600") != std::string::npos) {
+            filenames_26.push_back(cur);
+        } else if(cur.find("26x") == std::string::npos && cur.find("1800x3600") != std::string::npos) {
+            filenames.push_back(cur);
+        } else {
+            int slash1 = cur.rfind('/');
+            dirs.push_back(cur.substr(slash1 + 1));
+        }
+        std::cout << cur << std::endl;
+        count++;
     }
-    num_of_files = filenames.size();
 
-    MPI_Status status;
+    for(int i=0;i<dirs.size();i++) {
+        std::string write_dir = compressedFolderPath.getValue() + dirs[i];
+        if(!fs::exists(write_dir)) {
+            fs::create_directory(write_dir);
+        }
+    }
     size_t num;
-    for(int i=world_rank;i<num_of_files;i+=world_size) {
+    for(int i=world_rank;i<filenames.size();i+=world_size) {
         std::string file_path_str = filenames[i];
-        std::string filename = file_path_str.substr(file_path_str.rfind('/') + 1);
+        std::string filename = file_path_str.substr(file_path_str.rfind('/', file_path_str.rfind('/') - 1) + 1);
+//        std::string dirname = file_path_str.substr(0, filename.find('/'));
+//        std::string write_dir = compressedFolderPath.getValue() + dirname;
+//        if(!fs::exists(write_dir)) {
+//            fs::create_directory(write_dir);
+//        }
         auto data = SZ::readfile<float>(file_path_str.c_str(), num);
-        conf.num = num;
+        conf2.num = num;
         std::string compressed_file = compressedFolderPath.getValue() + filename + ".sz3";
-        auto cp_result = compress<float>(data.get(), compressed_file.c_str() , conf);
-        printf("My rank is %d, dealing with %s, saving to %s, compression time: %lf, compression ratio: %lf\n",
+        auto cp_result = compress<float>(data.get(), compressed_file.c_str() , conf2);
+        printf("Part 1 1800x3600- My rank is %d, dealing with %s, saving to %s, compression time: %lf, compression ratio: %lf\n",
+               world_rank, filename.c_str(), compressed_file.c_str(), cp_result.CPTime, cp_result.CR);
+    }
+    for(int i=world_rank;i<filenames_26.size();i+=world_size) {
+        std::string file_path_str = filenames_26[i];
+        std::string filename = file_path_str.substr(file_path_str.rfind('/', file_path_str.rfind('/') - 1) + 1);
+//        std::string dirname = file_path_str.substr(0, filename.find('/'));
+//        std::string write_dir = compressedFolderPath.getValue() + dirname;
+//        if(!fs::exists(write_dir)) {
+//            fs::create_directory(write_dir);
+//        }
+        auto data = SZ::readfile<float>(file_path_str.c_str(), num);
+        conf1.num = num;
+        std::string compressed_file = compressedFolderPath.getValue() + filename + ".sz3";
+        auto cp_result = compress<float>(data.get(), compressed_file.c_str() , conf1);
+        printf("Part 2 26x1800x3600- My rank is %d, dealing with %s, saving to %s, compression time: %lf, compression ratio: %lf\n",
                world_rank, filename.c_str(), compressed_file.c_str(), cp_result.CPTime, cp_result.CR);
     }
 
