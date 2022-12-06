@@ -121,7 +121,6 @@ int main(int argc, char** argv) {
             int slash1 = cur.rfind('/');
             dirs.push_back(cur.substr(slash1 + 1));
         }
-        std::cout << cur << std::endl;
         count++;
     }
 
