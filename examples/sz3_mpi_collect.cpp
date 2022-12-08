@@ -315,6 +315,17 @@ int main(int argc, char** argv) {
     size_t num;
     LorenzoResult lorenzoResult;
     int total_workers = num_of_files * num_of_ebs;
+
+    if(!fs::exists(csvfolder)) {
+        fs::create_directory(csvfolder);
+    }
+    if(!fs::exists(compressedFolderPath.getValue())) {
+        fs::create_directory(compressedFolderPath.getValue());
+    }
+    if(!fs::exists(decompressedFolderPath.getValue())) {
+        fs::create_directory(decompressedFolderPath.getValue());
+    }
+
     for(int i=world_rank; i<total_workers; i+=world_size) {
         int file_index = i / num_of_ebs;
         int eb_index = i % num_of_ebs;
@@ -341,9 +352,9 @@ int main(int argc, char** argv) {
 
         conf.num = num;
         conf.absErrorBound = eb;
-        std::string compressed_file = compressedFolderPath.getValue() + filename + ".sz3";
-        std::string csv_file = csvfolder + filename + ebs_str[eb_index] + ".csv";
-        std::string decompressed_folder = decompressedFolderPath.getValue() + filename + ".dp";
+        std::string compressed_file = compressedFolderPath.getValue() + filename + "-" + ebs_str[eb_index] + ".sz3";
+        std::string csv_file = csvfolder + filename + "-" + ebs_str[eb_index] + ".csv";
+        std::string decompressed_folder = decompressedFolderPath.getValue() + filename + "-" + ebs_str[eb_index] + ".dp";
         auto cp_result = compress<float>(data.get(), compressed_file.c_str() , conf);
         printf("My rank is %d, dealing with %s, saving to %s, compression time: %lf, compression ratio: %lf\n",
                world_rank, filename.c_str(), compressed_file.c_str(), cp_result.CPTime, cp_result.CR);
