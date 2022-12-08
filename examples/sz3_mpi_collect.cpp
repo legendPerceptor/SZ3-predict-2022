@@ -345,10 +345,10 @@ int main(int argc, char** argv) {
         std::string csv_file = csvfolder + filename + ebs_str[eb_index] + ".csv";
         std::string decompressed_folder = decompressedFolderPath.getValue() + filename + ".dp";
         auto cp_result = compress<float>(data.get(), compressed_file.c_str() , conf);
-        auto ori_data = SZ::readfile<float>(file_path_str.c_str(), num);
-        auto dp_result = decompress<float>(ori_data.get(), cp_result.cpdata.get(), cp_result.outsize, decompressed_folder.c_str(), conf, 1);
         printf("My rank is %d, dealing with %s, saving to %s, compression time: %lf, compression ratio: %lf\n",
                world_rank, filename.c_str(), compressed_file.c_str(), cp_result.CPTime, cp_result.CR);
+        auto ori_data = SZ::readfile<float>(file_path_str.c_str(), num);
+        auto dp_result = decompress<float>(ori_data.get(), cp_result.cpdata.get(), cp_result.outsize, decompressed_folder.c_str(), conf, 1);
         std::stringstream ss;
         auto writer = csv::make_csv_writer(ss);
         writer << std::vector<std::string>({"filename", "size", "num", "min", "max", "valueRange","avgValue", "entropy", "zeromean_variance", "total_overhead_time", "total_overhead_percentage",
