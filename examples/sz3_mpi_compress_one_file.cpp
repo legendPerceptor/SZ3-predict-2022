@@ -99,17 +99,20 @@ int main(int argc, char** argv) {
     // Get the rank of the process
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-    int num_of_files;
+    size_t num_of_files;
     double wtime;
     std::string dirpath = dataFolderPath.getValue();
-    std::vector<std::string> filenames;
+    std::vector<std::string> file_paths, filenames;
     if(world_rank==0) {
         wtime = MPI_Wtime();
     }
     for (const auto & entry : fs::directory_iterator(dirpath)) {
-        filenames.push_back(entry.path());
+        std::string cur_path = entry.path();
+        std::string filename = cur_path.substr(cur_path.rfind('/') + 1);
+        filenames.push_back(filename);
+        file_paths.push_back(cur_path);
     }
-    num_of_files = filenames.size();
+    num_of_files = file_paths.size();
 
     MPI_Status status;
     size_t num;
@@ -121,14 +124,20 @@ int main(int argc, char** argv) {
     std::vector<size_t> file_size_after_compression(num_of_files, 0);
     std::vector<bool> file_size_populated(num_of_files, false);
     size_t round = 0;
+    MPI_Status mpi_status;
+    if(world_rank == 0) {
+        MPI_File_write_at(fh, 0, &num_of_files, 1, MPI_UNSIGNED, &mpi_status);
+    }
     for(size_t i=world_rank;i<num_of_files;i+=world_size) {
-        std::string file_path_str = filenames[i];
+        std::string file_path_str = file_paths[i];
         std::string filename = file_path_str.substr(file_path_str.rfind('/') + 1);
         auto data = SZ::readfile<float>(file_path_str.c_str(), num);
         conf.num = num;
         auto cp_result = compress<float>(data.get(), conf);
         size_t compressed_size = cp_result.outsize;
         file_size_after_compression[i] = compressed_size;
+        file_size_populated[i] = true;
+        MPI_File_write_at(fh, sizeof(MPI_UNSIGNED) * (2 + i), &compressed_size, 1, MPI_UNSIGNED, &mpi_status);
         size_t send_data[2] = {i, compressed_size};
         MPI_Bcast(send_data, 2, MPI_UNSIGNED, world_rank, MPI_COMM_WORLD);
         size_t receive_data[2];
@@ -140,16 +149,19 @@ int main(int argc, char** argv) {
             file_size_populated[receive_data[0]] = true;
         }
         MPI_Barrier(MPI_COMM_WORLD);
-        int start_location=0;
+        int start_location= sizeof(MPI_UNSIGNED) * (num_of_files + 2);
         for(size_t j=0;j<i;j++){
             if(file_size_populated[j] == false) {
                 printf("Significant Error! File %d's size is unknown in rank %d! Should Exit!\n", j, world_rank);
             }
             start_location += file_size_after_compression[j];
         }
-        MPI_Status mpi_status;
-        MPI_File_write_at(fh, start_location, cp_result.cpdata.get(), compressed_size, MPI_BYTE, &mpi_status);
 
+        MPI_File_write_at(fh, start_location, cp_result.cpdata.get(), compressed_size, MPI_BYTE, &mpi_status);
+        if( i == num_of_files - 1) {
+            size_t final_location = start_location + compressed_size;
+            MPI_File_write_at(fh, sizeof(MPI_UNSIGNED), &final_location, 1, MPI_UNSIGNED, &mpi_status);
+        }
         printf("My rank is %d, dealing with No. %zu file, writing offset: %d, compressed_size: %zu, compression time: %lf, compression ratio: %lf\n",
                world_rank, i, start_location, compressed_size, cp_result.CPTime, cp_result.CR);
         cp_result.cpdata.reset(nullptr);
@@ -158,7 +170,15 @@ int main(int argc, char** argv) {
 
 
     MPI_Barrier(MPI_COMM_WORLD);
-    if(world_rank==0){
+    MPI_File_close(&fh);
+    if(world_rank==0) {
+        std::string compressed_file = compressedFolderPath.getValue();
+        std::string compressed_folder = compressed_file.substr(0, compressed_file.rfind('/') + 1);
+        std::ofstream fout(compressed_folder + "filenames.txt", std::ios::out);
+        fout << filenames.size() << std::endl;
+        for(int i = 0;i<filenames.size();i++) {
+            fout << filenames[i] << std::endl;
+        }
         printf("Finished all tasks! Total Time: %lf\n", MPI_Wtime() - wtime);
     }
     // Get the name of the processor

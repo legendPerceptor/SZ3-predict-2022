@@ -31,10 +31,10 @@ make_lorenzo_regression_compressor(const SZ::Config &conf, Quantizer quantizer, 
         printf("All lorenzo and regression methods are disabled.\n");
         exit(0);
     }
-    printf("%i %i %i %i\n", conf.lorenzo, conf.lorenzo2, conf.regression, conf.regression2);
+//    printf("%i %i %i %i\n", conf.lorenzo, conf.lorenzo2, conf.regression, conf.regression2);
     if (conf.lorenzo) {
         if (use_single_predictor) {
-            printf("Using Lorenzo Only\n");
+//            printf("Using Lorenzo Only\n");
             return SZ::make_sz_general_compressor<T, N>(
                     SZ::make_sz_general_frontend<T, N>(conf, SZ::LorenzoPredictor<T, N, 1>(conf.absErrorBound), quantizer),
                     encoder, lossless);
@@ -86,7 +86,7 @@ char *SZ_compress_LorenzoReg(SZ::Config &conf, T *data, size_t &outSize) {
 
     char *cmpData;
     auto quantizer = SZ::LinearQuantizer<T>(conf.absErrorBound, conf.quantbinCnt / 2);
-    std::cout << "abs eb:" << conf.absErrorBound << std::endl;
+//    std::cout << "abs eb:" << conf.absErrorBound << std::endl;
 //    if (N == 3 && !conf.regression2) {
         // use fast version for 3D
 //        auto sz = SZ::make_sz_general_compressor<T, N>(SZ::make_sz_fast_frontend<T, N>(conf, quantizer), SZ::HuffmanEncoder<int>(),
