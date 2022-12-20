@@ -154,8 +154,8 @@ int main(int argc, char** argv) {
         size_t compressed_size = cp_result.outsize;
         file_size_after_compression[i] = compressed_size;
         file_size_populated[i] = true;
-        MPI_File_write_at(fh, sizeof(my_MPI_SIZE_T) * (2 + i), &compressed_size, 1, my_MPI_SIZE_T, &mpi_status);
-        if(mpi_status.MPI_ERROR) {
+        auto err = MPI_File_write_at(fh, sizeof(my_MPI_SIZE_T) * (2 + i), &compressed_size, 1, my_MPI_SIZE_T, &mpi_status);
+        if((err != MPI_SUCCESS)) {
             std::cout << "ERROR writing sizes: source is " << mpi_status.MPI_SOURCE << " with tag " << mpi_status.MPI_TAG << " error code is " << mpi_status.MPI_ERROR << std::endl;
         }
         size_t send_data[2] = {i, compressed_size};
@@ -177,8 +177,8 @@ int main(int argc, char** argv) {
             start_location += file_size_after_compression[j];
         }
 
-        MPI_File_write_at(fh, start_location, cp_result.cpdata.get(), compressed_size, MPI_SIGNED_CHAR, &mpi_status);
-        if(mpi_status.MPI_ERROR) {
+        err = MPI_File_write_at(fh, start_location, cp_result.cpdata.get(), compressed_size, MPI_SIGNED_CHAR, &mpi_status);
+        if(err != MPI_SUCCESS) {
             std::cout << "ERROR writing files: source is " << mpi_status.MPI_SOURCE << " with tag " << mpi_status.MPI_TAG << " error code is " << mpi_status.MPI_ERROR << std::endl;
         }
         if( i == num_of_files - 1) {
