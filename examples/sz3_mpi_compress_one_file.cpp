@@ -16,6 +16,23 @@
 #include <tclap/CmdLine.h>
 #include "csv.hpp"
 
+#include <stdint.h>
+#include <limits.h>
+
+#if SIZE_MAX == UCHAR_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED_CHAR
+#elif SIZE_MAX == USHRT_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED_SHORT
+#elif SIZE_MAX == UINT_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED
+#elif SIZE_MAX == ULONG_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED_LONG
+#elif SIZE_MAX == ULLONG_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED_LONG_LONG
+#else
+   #error "what is happening here?"
+#endif
+
 namespace fs = std::filesystem;
 
 
@@ -126,7 +143,7 @@ int main(int argc, char** argv) {
     size_t round = 0;
     MPI_Status mpi_status;
     if(world_rank == 0) {
-        MPI_File_write_at(fh, 0, &num_of_files, 1, MPI_UNSIGNED, &mpi_status);
+        MPI_File_write_at(fh, 0, &num_of_files, 1, my_MPI_SIZE_T, &mpi_status);
     }
     for(size_t i=world_rank;i<num_of_files;i+=world_size) {
         std::string file_path_str = file_paths[i];
@@ -137,19 +154,22 @@ int main(int argc, char** argv) {
         size_t compressed_size = cp_result.outsize;
         file_size_after_compression[i] = compressed_size;
         file_size_populated[i] = true;
-        MPI_File_write_at(fh, sizeof(MPI_UNSIGNED) * (2 + i), &compressed_size, 1, MPI_UNSIGNED, &mpi_status);
+        MPI_File_write_at(fh, sizeof(my_MPI_SIZE_T) * (2 + i), &compressed_size, 1, my_MPI_SIZE_T, &mpi_status);
+        if(mpi_status.MPI_ERROR) {
+            std::cout << "ERROR writing sizes: source is " << mpi_status.MPI_SOURCE << " with tag " << mpi_status.MPI_TAG << " error code is " << mpi_status.MPI_ERROR << std::endl;
+        }
         size_t send_data[2] = {i, compressed_size};
-        MPI_Bcast(send_data, 2, MPI_UNSIGNED, world_rank, MPI_COMM_WORLD);
+        MPI_Bcast(send_data, 2, my_MPI_SIZE_T, world_rank, MPI_COMM_WORLD);
         size_t receive_data[2];
         for(size_t j = 0; j < world_size; j++) {
             if(j == world_rank) continue;
             if(j + round * world_size > num_of_files) continue;
-            MPI_Bcast(receive_data, 2, MPI_UNSIGNED, j, MPI_COMM_WORLD);
+            MPI_Bcast(receive_data, 2, my_MPI_SIZE_T, j, MPI_COMM_WORLD);
             file_size_after_compression[receive_data[0]] = receive_data[1];
             file_size_populated[receive_data[0]] = true;
         }
         MPI_Barrier(MPI_COMM_WORLD);
-        int start_location= sizeof(MPI_UNSIGNED) * (num_of_files + 2);
+        MPI_Offset start_location= sizeof(my_MPI_SIZE_T) * (num_of_files + 2);
         for(size_t j=0;j<i;j++){
             if(file_size_populated[j] == false) {
                 printf("Significant Error! File %d's size is unknown in rank %d! Should Exit!\n", j, world_rank);
@@ -157,12 +177,15 @@ int main(int argc, char** argv) {
             start_location += file_size_after_compression[j];
         }
 
-        MPI_File_write_at(fh, start_location, cp_result.cpdata.get(), compressed_size, MPI_BYTE, &mpi_status);
+        MPI_File_write_at(fh, start_location, cp_result.cpdata.get(), compressed_size, MPI_SIGNED_CHAR, &mpi_status);
+        if(mpi_status.MPI_ERROR) {
+            std::cout << "ERROR writing files: source is " << mpi_status.MPI_SOURCE << " with tag " << mpi_status.MPI_TAG << " error code is " << mpi_status.MPI_ERROR << std::endl;
+        }
         if( i == num_of_files - 1) {
             size_t final_location = start_location + compressed_size;
-            MPI_File_write_at(fh, sizeof(MPI_UNSIGNED), &final_location, 1, MPI_UNSIGNED, &mpi_status);
+            MPI_File_write_at(fh, sizeof(my_MPI_SIZE_T), &final_location, 1, my_MPI_SIZE_T, &mpi_status);
         }
-        printf("My rank is %d, dealing with No. %zu file, writing offset: %d, compressed_size: %zu, compression time: %lf, compression ratio: %lf\n",
+        printf("My rank is %d, dealing with No. %zu file, writing offset: %zu, compressed_size: %zu, compression time: %lf, compression ratio: %lf\n",
                world_rank, i, start_location, compressed_size, cp_result.CPTime, cp_result.CR);
         cp_result.cpdata.reset(nullptr);
         round++;
@@ -180,6 +203,12 @@ int main(int argc, char** argv) {
             fout << filenames[i] << std::endl;
         }
         printf("Finished all tasks! Total Time: %lf\n", MPI_Wtime() - wtime);
+    }
+
+    if(world_rank == 0) {
+        for(size_t i=0;i<num_of_files;i++) {
+            std::cout << filenames[i] <<"    "<<file_size_after_compression[i] << std::endl;
+        }
     }
     // Get the name of the processor
     // char processor_name[MPI_MAX_PROCESSOR_NAME];
