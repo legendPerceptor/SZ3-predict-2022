@@ -75,6 +75,9 @@ int main(int argc, char** argv) {
     std::string cur_filename;
     while(fin >> cur_filename) {
         filenames.push_back(cur_filename);
+        if(world_rank == 0) {
+            std::cout << cur_filename << std::endl;
+        }
     }
     fin.close();
 
@@ -89,6 +92,7 @@ int main(int argc, char** argv) {
         size_t cur_size;
         MPI_File_read_at(fh, (2+i) * sizeof(MPI_UNSIGNED), &cur_size, 1, MPI_UNSIGNED, &status);
         file_size_after_compression[i] = cur_size;
+
     }
     for(size_t i=world_rank;i<num_of_files;i+=world_size) {
 
