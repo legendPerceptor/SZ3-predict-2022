@@ -103,7 +103,6 @@ void SZ_decompress(SZ::Config &conf, char *cmpData, size_t cmpSize, T *&decData)
         SZ::uchar const *cmpDataPos = (SZ::uchar *) cmpData + (cmpSize - sizeof(int) - confSize);
         conf.load(cmpDataPos);
     }
-    printf("I am in decompression here\n");
     if (decData == nullptr) {
         decData = new T[conf.num];
     }

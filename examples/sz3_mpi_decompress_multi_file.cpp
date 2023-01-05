@@ -6,6 +6,7 @@
 #include <cmath>
 #include <vector>
 #include <filesystem>
+#include <fstream>
 
 #include <memory>
 
@@ -116,9 +117,6 @@ int main(int argc, char** argv) {
     std::string cur_filename;
     while(fin >> cur_filename) {
         filenames.push_back(cur_filename);
-        if(world_rank == 0) {
-            std::cout << cur_filename << std::endl;
-        }
     }
     fin.close();
     size_t num_of_complete_groups = num_of_files / num_in_a_group;
@@ -161,16 +159,22 @@ int main(int argc, char** argv) {
         MPI_Offset start_location= sizeof(my_MPI_SIZE_T) * (num_in_a_group + 1) + sizeof(MPI_OFFSET);
         round = i / num_in_a_group;
         std::string cur_file_path = compressedFilePrefix + std::to_string(round) + compressedFileExt;
-        MPI_File_open(MPI_COMM_WORLD, cur_file_path.c_str(),
-                      MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+        // MPI_File_open(MPI_COMM_WORLD, cur_file_path.c_str(),
+        //               MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+        
         for(size_t j=0;j < i % num_in_a_group;j++){
             start_location += file_size_after_compression[round * num_in_a_group + j];
         }
+        std::ifstream fin;
+        fin.open(cur_file_path, std::ios::in | std::ios::binary);
+        fin.seekg(start_location, std::ios::beg);
         // std::unique_ptr<char[]> compressed_data = std::make_unique<char[]>(file_size_after_compression[i]);
         char *compressed_data = new char[file_size_after_compression[i]];
+        fin.read(compressed_data, file_size_after_compression[i]);
+        fin.close();
         // MPI_File_read_at(fh, start_location, reinterpret_cast<char *>(&compressed_data[0]), file_size_after_compression[i], MPI_BYTE, &status);
-        MPI_File_read_at(fh, start_location, compressed_data, file_size_after_compression[i], MPI_SIGNED_CHAR, &status);
-        MPI_File_close(&fh);
+        // MPI_File_read_at(fh, start_location, compressed_data, file_size_after_compression[i], MPI_SIGNED_CHAR, &status);
+        // MPI_File_close(&fh);
         std::string decompressed_file = decompressedFolderPath.getValue() + filenames[i] + ".dp";
         DecompressionResult dp_result;
         dp_result = decompress<float>(compressed_data, file_size_after_compression[i], decompressed_file.c_str(), conf, 1);
