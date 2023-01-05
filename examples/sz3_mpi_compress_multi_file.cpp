@@ -16,6 +16,23 @@
 #include <tclap/CmdLine.h>
 #include "csv.hpp"
 
+#include <stdint.h>
+#include <limits.h>
+
+#if SIZE_MAX == UCHAR_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED_CHAR
+#elif SIZE_MAX == USHRT_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED_SHORT
+#elif SIZE_MAX == UINT_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED
+#elif SIZE_MAX == ULONG_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED_LONG
+#elif SIZE_MAX == ULLONG_MAX
+#define my_MPI_SIZE_T MPI_UNSIGNED_LONG_LONG
+#else
+   #error "what is happening here?"
+#endif
+
 
 namespace fs = std::filesystem;
 
@@ -152,10 +169,10 @@ int main(int argc, char** argv) {
         
         if(world_rank == 0) {
             if(i + world_size < num_of_files) {
-                MPI_File_write_at(fh, 0, &world_size, 1, MPI_UNSIGNED, &mpi_status);
+                MPI_File_write_at(fh, 0, &world_size, 1, my_MPI_SIZE_T, &mpi_status);
             } else {
                 size_t this_round_file_num = num_of_files - i;
-                MPI_File_write_at(fh, 0, &this_round_file_num, 1, MPI_UNSIGNED, &mpi_status);
+                MPI_File_write_at(fh, 0, &this_round_file_num, 1, my_MPI_SIZE_T, &mpi_status);
             }
         }
         std::string file_path_str = file_paths[i];
@@ -166,11 +183,11 @@ int main(int argc, char** argv) {
         size_t compressed_size = cp_result.outsize;
         file_size_after_compression[i] = compressed_size;
         file_size_populated[i] = true;
-        MPI_Offset size_location = sizeof(MPI_OFFSET) + sizeof(MPI_UNSIGNED) * (1 + i % world_size);
+        MPI_Offset size_location = sizeof(MPI_OFFSET) + sizeof(my_MPI_SIZE_T) * (1 + i % world_size);
         printf("rank %u, file %u, round: %u, size location: %llu\n", world_rank, i, round, size_location);
-        MPI_File_write_at(fh, size_location, &compressed_size, 1, MPI_UNSIGNED, &mpi_status);
+        MPI_File_write_at(fh, size_location, &compressed_size, 1, my_MPI_SIZE_T, &mpi_status);
         size_t send_data[2] = {i, compressed_size};
-        MPI_Bcast(send_data, 2, MPI_UNSIGNED, world_rank, MPI_COMM_WORLD);
+        MPI_Bcast(send_data, 2, my_MPI_SIZE_T, world_rank, MPI_COMM_WORLD);
         size_t receive_data[2];
         size_t loop_size = world_size;
         if(final_round) {
@@ -180,13 +197,13 @@ int main(int argc, char** argv) {
         for(size_t j = 0; j < loop_size; j++) {
             if(j == world_rank) continue;
             // if(j + round * world_size >= num_of_files) continue;
-            MPI_Bcast(receive_data, 2, MPI_UNSIGNED, j, MPI_COMM_WORLD);
+            MPI_Bcast(receive_data, 2, my_MPI_SIZE_T, j, MPI_COMM_WORLD);
             file_size_after_compression[receive_data[0]] = receive_data[1];
             file_size_populated[receive_data[0]] = true;
         }
         // printf("Rank %d, file %u, reach the barrier and is waiting\n", world_rank, i);
         // MPI_Barrier(MPI_COMM_WORLD);
-        MPI_Offset start_location= sizeof(MPI_UNSIGNED) * (world_size + 1) + sizeof(MPI_OFFSET);
+        MPI_Offset start_location= sizeof(my_MPI_SIZE_T) * (world_size + 1) + sizeof(MPI_OFFSET);
         for(size_t j=0;j < world_rank;j++){
             if(file_size_populated[round * world_size + j] == false) {
                 printf("Significant Error! File %d's size is unknown in rank %d! Should Exit!\n", j, world_rank);
@@ -198,7 +215,7 @@ int main(int argc, char** argv) {
         MPI_File_write_at(fh, start_location, cp_result.cpdata.get(), compressed_size, MPI_BYTE, &mpi_status);
         if(i == num_of_files - 1 || i == (round+1) * world_size - 1) {
             MPI_Offset final_location = start_location + compressed_size;
-            MPI_File_write_at(fh, sizeof(MPI_UNSIGNED), &final_location, 1, MPI_OFFSET, &mpi_status);
+            MPI_File_write_at(fh, sizeof(my_MPI_SIZE_T), &final_location, 1, MPI_OFFSET, &mpi_status);
             printf("round %u is finishing the final file, total size is %llu\n", round, final_location);
         }
         MPI_File_close(&fh);
@@ -215,11 +232,11 @@ int main(int argc, char** argv) {
                         MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fh);
         MPI_File_close(&fh);
         for (size_t j = 0; j < num_of_files - round * world_size; j++) {
-            MPI_Bcast(receive_data, 2, MPI_UNSIGNED, j, MPI_COMM_WORLD);
+            MPI_Bcast(receive_data, 2, my_MPI_SIZE_T, j, MPI_COMM_WORLD);
         }
     } else {
         for (size_t j = world_rank+1; j < num_of_files - round * world_size; j++) {
-            MPI_Bcast(receive_data, 2, MPI_UNSIGNED, j, MPI_COMM_WORLD);
+            MPI_Bcast(receive_data, 2, my_MPI_SIZE_T, j, MPI_COMM_WORLD);
         }
     }
 
