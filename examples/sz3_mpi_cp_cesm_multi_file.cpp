@@ -132,7 +132,7 @@ int main(int argc, char** argv) {
             folder = cur.substr(slash2);
             filenames_26.push_back(folder);
             file_paths_26.push_back(cur);
-        } else if(cur.find("26x") == std::string::npos && cur.find("1800x3600") != std::string::npos) {
+        } else if(cur.find("x1800x3600") == std::string::npos && cur.find("1800x3600") != std::string::npos) {
             slash1 = cur.rfind('/');
             slash2 = cur.rfind('/', slash1 - 1);
             folder = cur.substr(slash2);
@@ -148,7 +148,7 @@ int main(int argc, char** argv) {
     std::sort(filenames_26.begin(), filenames_26.end());
 
     do_compression(world_rank, world_size, file_paths, conf2, compressedFilePrefix, compressedFileExt);
-    do_compression(world_rank, world_size,file_paths_26, conf1, compressedFilePrefix, "-26-" + compressedFileExt);
+    do_compression(world_rank, world_size,file_paths_26, conf1, compressedFilePrefix, "-26" + compressedFileExt);
 
 
     MPI_Barrier(MPI_COMM_WORLD);
